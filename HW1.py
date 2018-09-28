@@ -1,13 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def load_data(path, num):
+def load_data(num):
     #generate data
     f = lambda x:x**2 - 3*x + 1 #y=x^2 - 3x + 1
     F = np.vectorize(f)
     #print(X)
     #print(Y)
-
 
     #random data by F(X) + random residual(upper bound=2)
     random_sign = np.vectorize(lambda x: x if np.random.sample() > 1 else -x)
@@ -18,8 +17,16 @@ def load_data(path, num):
     #save ,load data
     #q = np.concatenate((data_x,data_y),axis=0)
     #np.savetxt(path, q)
-    #q = np.loadtxt(path)
+    
     return data_x, data_y
+
+def load_data_from_file(path):
+    q = np.loadtxt(path, delimiter=',')    
+    data_x = q[:, 0]
+    data_y = q[:, 1]
+    num = len(data_x)
+    
+    return data_x, data_y, num
 
 #transpose function
 def transpose(a):
@@ -136,7 +143,9 @@ def newton_method(X,Y, data_num,base_num):
     
     dx_sum = 1
     x = np.zeros((base_num, 1), dtype=float)
+    itera = 0
     while dx_sum > 0.00001:
+        itera += 1
         # ((A^T) * A) 3*3
         for i in range(len(AT)):     
             for j in range(len(A[0])):         
@@ -173,7 +182,7 @@ def newton_method(X,Y, data_num,base_num):
         dx_sum = 0
         for i in range(base_num):
             dx_sum += dx[i][0]   
-        
+    print("itera:",itera)    
     return x
 
 # linear regression
@@ -197,8 +206,7 @@ def linear_regression(X,factor,Y, data_num, base_num):
     #A = np.concatenate((pow(X,0),X,pow(X,2)),axis=1)
     b = Y.reshape(data_num,1)    
     
-    AT = transpose(A)
-    
+    AT = transpose(A)    
     size = (len(AT))    
     iden = identity(size) 
     matrixlambda = multiplyfactor(factor,iden)
@@ -208,7 +216,7 @@ def linear_regression(X,factor,Y, data_num, base_num):
         for j in range(len(A[0])):         
             for k in range(len(A)): 
                 result[i][j] += AT[i][k] * A[k][j]
-    #print(result)
+    #print("ata:",result)
     #print(matrixlambda)
               
     for i in range(len(AT)):
@@ -240,37 +248,52 @@ def linear_regression(X,factor,Y, data_num, base_num):
     print("L:\n",L)
     print("\nU:\n",U)
     print("\n方程式係數:\n",x)
-    print("\nfitting line=\n",x[0],"*x^2 + ",x[1], "*x + ",x[2])
+    
+    s = "\nfitting line = \n"
+    for i in range(base_num-1):
+        s += ("%.6lf" % x[i][0]) + "x^" + ("%d" % i) + " + "
+    s += ("%.6lf" % x[base_num-1][0]) + "x^" + ("%d" % (base_num-1))
+    print(s)
     
     return x
     
-def calculate_error(x,data_x, data_y,num):
+def calculate_error(x,data_x, data_y, num, base_num):
     square_error = 0
+    total = 0   
+        
+    #print("num:",num)
     for i in range(num):
-        square_error +=(data_y[i] - (x[0]* data_x[i]**2 + x[1]* data_x[i] + x[2])) **2  
-    
-    print('\nsquare_error:\n',str(square_error))   
+        predict_y = 0
+        for j in range(base_num):
+            predict_y += x[j]*(data_x[i]**j)
+        square_error +=(data_y[i] - predict_y) **2
+    print('\nLSE:\n',str(square_error)) 
+    square_error /= num
+    square_error = np.sqrt(square_error)
+    print('\nRMS:\n',str(square_error))   
      
     
     
 if __name__=="__main__": 
-    data_num = 100
-    base_num =3
-    data_x, data_y = load_data("C:/Users/hsps9/Desktop/data2.txt", data_num)
+    data_num = 20
+    data_x, data_y = load_data(data_num)
+    
+    base_num = 10
+    #data_x, data_y, data_num = load_data_from_file("C:/Users/hsps9/Desktop/cos.txt")
     factor = 0    
     x = linear_regression(data_x,factor,data_y, data_num, base_num)
-    calculate_error(x,data_x, data_y, data_num)
+    calculate_error(x,data_x, data_y, data_num,base_num)
     newton_x =newton_method(data_x,data_y, data_num, base_num)
     
     #LSE
     LR_X = data_x
-    a=x[0]
-    b=x[1]
-    c=x[2]
-    h = lambda x: a*x**2 + b*x + c
-    H = np.vectorize(h)
-    LR_Y = H(LR_X)    
-    
+    LR_Y = []
+    for i in range(data_num):
+        predict_y = 0
+        for j in range(base_num):
+            predict_y += x[j]*(data_x[i]**j)
+        LR_Y = np.concatenate((LR_Y, predict_y), axis=0)
+        
     #plot   
     plt.figure()
     plt.subplot(1,2,1)
@@ -282,18 +305,23 @@ if __name__=="__main__":
     
     #newton_method
     LR_X = data_x
-    a=newton_x[0]
-    b=newton_x[1]
-    c=newton_x[2]
-    h = lambda x: a*x**2 + b*x + c
-    H = np.vectorize(h)
-    LR_Y = H(LR_X)    
+    LR_Y = []
+    for i in range(data_num):
+        predict_y = 0
+        for j in range(base_num):
+            predict_y += x[j]*(data_x[i]**j)
+        LR_Y = np.concatenate((LR_Y, predict_y), axis=0)
+       
     
     #plot   
     plt.subplot(1,2,2)    
-    print("方程式係數:\n",newton_x)
-    print("\nfitting line=\n",newton_x[0],"*x^2 + ",newton_x[1], "*x + ",newton_x[2])    
-    calculate_error(newton_x,data_x, data_y, data_num)
+    print("\n方程式係數:\n",newton_x)
+    s = "\nfitting line = \n"
+    for i in range(base_num-1):
+        s += ("%.6lf" % x[i][0]) + "x^" + ("%d" % i) + " + "
+    s += ("%.6lf" % x[base_num-1][0]) + "x^" + ("%d" % (base_num-1))
+    print(s)       
+    calculate_error(newton_x,data_x, data_y, data_num, base_num)
     plt.title('newton_method')
     plt.plot(LR_X, LR_Y, color='g', label='fitting line')
     plt.scatter(data_x, data_y, color='r', marker = '^', label='data_point', linewidth=2)
